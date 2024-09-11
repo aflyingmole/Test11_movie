@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <style>
+        .active {
+            font-size: 1.3em;
+            color: cyan;
+        }
+    </style>
+    <title>detail.html</title>
+</head>
+<body>
+<div>
+    <h1>영화제목 : [[${movie.title}]]</h1>
+    <p th:text="'영화감독 : ' +  ${movie.director}"></p>
+    <p th:text="|줄거리 : ${movie.content}|"></p>
+</div>
+<!--댓글목록-->
+<div id="commList"></div>
+
+<!--댓글등록 폼-->
+<div class="commentsForm">
+    <h3>댓글</h3>
+    <p>작성자<br><input type="text" id="id"></p>
+    <p>내용<br><textarea id="comments"></textarea></p>
+    <p><input type="button" id="btnSave" value="등록"></p>
+</div>
+
+<script th:inline="javascript">
+    let mnum = [[${movie.mnum}]]
+
+    function list(page) {
+        $.ajax({
+            url: "/comments/list/" + mnum + "/" + page,
+            type: 'get',
+            dataType: 'json',
+            success: function (data) {
+                $("#commList").empty();
+                let html = "";
+                $(data.list).each(function (i, comm) {
+                    html += "<div>" +
+                        "아이디 : <input value='" + comm.id + "' readonly><br>" +
+                        "내용 : <input value='" + comm.comments + "' readonly><br>" +
+                        "<a href='javascript:deleteComm("+comm.cnum+")'>삭제</a>" + " " +
+                        "<a href='javascript:update("+comm.cnum+")'>수정</a>" +
+                        "</div>";
+                });
+                $("#commList").append(html)
+                //페이징처리
+                let pageing = "";
+
+
+                //이전페이지
+                if (data.startPage > 4) {
+                    pageing += "<a href='javascript:list("+(data.startPage-1)+")'>prev</a>";
+                }
+                for (let i = data.startPage; i <= data.endPage; i++) {
+                    if (i == page) { //현재페이지 확인
+                        pageing += "<a class='active' href='javascript:list(" + i + ")'>[" + i + "]</a>";
+                    } else {
+                        pageing += "<a href='javascript:list(" + i + ")'>[" + i + "]</a>";
+                    }
+                }
+
+                //다음페이지
+                // if (data.startPage+3 < data.endPage) {
+                if(data.endPage<data.totalPageCount-1){
+                    pageing += "<a href='javascript:list("+(data.endPage+1)+")'>next</a>";
+                }
+                $("#commList").append(pageing)
+            },
+        })
+    }
+
+    function deleteComm(cnum) {
+        $.ajax({
+            url : '/comments/delete/' + cnum ,
+            type : 'delete',
+            success: function () {
+                alert('삭제 성공!')
+                list(0);
+            },
+        })
+    }
+
+    function update(cnum) {
+        let commentDiv = $("a[href='javascript:update("+cnum+")']").parent();
+        let currentComment = commentDiv.find("input[value]").val();
+
+        commentDiv.empty();
+
+        let html = "아이디 : <input value='" + currentComment + "' id='updateId" + cnum + "' readonly><br>" +
+            "내용 : <textarea id='updateComment" + cnum + "'>" + currentComment + "</textarea><br>" +
+            "<a href='javascript:saveUpdate("+cnum+")'>저장</a>";
+        commentDiv.append(html);
+    }
+
+    function saveUpdate(cnum) {
+        let updatedComment = $("#updateComment" + cnum).val();
+
+        let param = {
+            cnum: cnum,
+            comments: updatedComment
+        };
+
+        $.ajax({
+            url: '/comments/update',
+            type: 'put',
+            contentType: 'application/json',
+            data: JSON.stringify(param),
+            success: function () {
+                alert('수정 성공!');
+                list(0);
+            },
+        });
+    }
+
+
+    list(0);
+
+</script>
+
+<script th:inline="javascript">
+    $("#btnSave").click(function () {
+        let id = $("#id").val();
+        let comments = $("#comments").val();
+        const urlParams = new URLSearchParams(window.location.search);
+        const mnum = urlParams.get('mnum');
+        console.log(id, comments);
+
+        let param = {
+            id: id,
+            comments: comments,
+            mnum: mnum
+        };
+
+        $.ajax({
+            url: '/comments/insert', // 컨트롤러 메서드에 맞게 수정
+            type: 'post',
+            contentType: 'application/json', // JSON 형식으로 보내는 경우
+            data: JSON.stringify(param),
+            success: function (data) {
+                alert('등록 성공');
+                list(0);
+            },
+            error: function (xhr, status, error) {
+                console.error('등록 실패:', error);
+            }
+        });
+    });
+</script>
+</body>
+</html>
